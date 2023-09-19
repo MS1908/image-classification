@@ -4,11 +4,11 @@ import json
 import math
 import os
 import torch
-from clearml import Task, Logger, Dataset
 from datetime import datetime
 from timm.utils import ModelEmaV2
 from torch import nn
 from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from dataset import create_data_loader
@@ -19,12 +19,30 @@ from utils import set_all_seeds
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--clearml-project', type=str, help='Name of ClearML project', default=None)
-    parser.add_argument('--clearml-task', type=str, help='Name of ClearML task', default=None)
-    parser.add_argument('--train-ds-name', type=str, help='Name of ClearML training dataset', default=None)
-    parser.add_argument('--train-ds-ver', type=str, help='Version of ClearML training dataset', default=None)
-    parser.add_argument('--val-ds-name', type=str, help='Name of ClearML validation dataset', default=None)
-    parser.add_argument('--val-ds-ver', type=str, help='Version of ClearML validation dataset', default=None)
+    parser.add_argument(
+        '--train-ds-path',
+        type=str,
+        help='Path of training dataset',
+        default=None
+    )
+    parser.add_argument(
+        '--train-ds-annot',
+        type=str,
+        help='Path of training dataset annotation file',
+        default=None
+    )
+    parser.add_argument(
+        '--val-ds-path',
+        type=str,
+        help='Path of validation dataset',
+        default=None
+    )
+    parser.add_argument(
+        '--val-ds-annot',
+        type=str,
+        help='Path of validation dataset annotation file',
+        default=None
+    )
     
     parser.add_argument(
         "--input_size",
@@ -65,6 +83,11 @@ def parse_args():
         type=int,
         default=32,
         help="Batch size (per device) for the training dataloader.",
+    )
+    parser.add_argument(
+        "--ema",
+        action='store_true',
+        help="Use EMA when training or not",
     )
     parser.add_argument(
         "--optimizer",
@@ -120,9 +143,30 @@ def parse_args():
         help="Random seed",
     )
     
-    parser.add_argument('--ckpt-path', type=str, help='Path to save training checkpoints', default='./weights/')
-    parser.add_argument('--device', type=int, default=-1)
-    parser.add_argument('--n-worker', type=int, default=-1)
+    parser.add_argument(
+        '--ckpt-path',
+        type=str,
+        help='Path to save training checkpoints',
+        default='./weights/'
+    )
+    parser.add_argument(
+        '--log-path',
+        type=str,
+        help='Path to save training logs',
+        default='./logs/'
+    )
+    parser.add_argument(
+        '--device',
+        type=int,
+        help='ID of device to train on, use -1 for CPU',
+        default=-1
+    )
+    parser.add_argument(
+        '--n-worker',
+        type=int,
+        help='Number of workers to use when training',
+        default=0
+    )
     args = parser.parse_args()
     
     return args
@@ -138,26 +182,24 @@ def train(
     scheduler,
     update_scheduler_by_iter,
     epochs,
+    ema=False,
     patience=None,
-    ckpt_path=None
+    ckpt_path=None,
+    log_path=None
 ):
     best_acc = float('-inf')
     best_train_acc = float('-inf')
-    
-    Logger.current_logger().report_scalar(
-        "accuracy", "val", iteration=0, value=0.0
-    )
-    Logger.current_logger().report_scalar(
-        "EMA accuracy", "val", iteration=0, value=0.0
-    )
-    Logger.current_logger().report_scalar(
-        "accuracy", "train", iteration=0, value=0.0
-    )
-    Logger.current_logger().report_scalar(
-        "EMA accuracy", "train", iteration=0, value=0.0
-    )
-    
-    model_ema = ModelEmaV2(model=model, device=device, decay=0.998)
+
+    if log_path:
+        logger = SummaryWriter(log_path)
+        logger.add_scalar('Accuracy/val', 0., 0)
+    else:
+        logger = None
+
+    if ema:
+        model_ema = ModelEmaV2(model=model, device=device, decay=0.998)
+    else:
+        model_ema = None
     
     cnt_not_improve = 0
     
@@ -175,41 +217,41 @@ def train(
             optimizer.zero_grad()
 
             outputs = model(images)
-            outputs_ema = model_ema.module(images)
             loss = criterion(outputs, targets)
             
             loss.backward()
             optimizer.step()
-            model_ema.update(model)
 
-            _, predicted = torch.max(outputs.data, 1)
-            _, predicted_ema = torch.max(outputs_ema.data, 1)
-            
             total += targets.size(0)
+            _, predicted = torch.max(outputs.data, 1)
             correct += (predicted == targets).sum().item()
-            correct_ema += (predicted_ema == targets).sum().item()
+
+            if model_ema:
+                outputs_ema = model_ema.module(images)
+                model_ema.update(model)
+                _, predicted_ema = torch.max(outputs_ema.data, 1)
+                correct_ema += (predicted_ema == targets).sum().item()
             
             lr = optimizer.param_groups[0]['lr']
 
-            pbar.set_postfix(loss=loss.item(), train_acc=correct / total, ema_train_acc=correct_ema / total)
-            Logger.current_logger().report_scalar(
-                "loss", "train", iteration=(epoch * len(train_loader) + i), value=loss.item()
-            )
-            Logger.current_logger().report_scalar(
-                "learning_rate", "train", iteration=(epoch * len(train_loader) + i), value=lr
-            )
-            
+            if model_ema:
+                pbar.set_postfix(loss=loss.item(), train_acc=correct / total, ema_train_acc=correct_ema / total)
+            else:
+                pbar.set_postfix(loss=loss.item(), train_acc=correct / total)
+
+            if logger:
+                logger.add_scalar('Loss/train', loss.item(), epoch * len(train_loader) + i)
+                logger.add_scalar('Accuracy/train', correct / total, epoch * len(train_loader) + i)
+                logger.add_scalar('Learning rate', lr, epoch * len(train_loader) + i)
+                if model_ema:
+                    logger.add_scalar('EMA accuracy/train', correct_ema / total, epoch * len(train_loader) + i)
+
             if update_scheduler_by_iter:  # Update scheduler after each iteration
                 scheduler.step()
 
         train_acc = correct / total
-        train_acc_ema = correct_ema / total
-        Logger.current_logger().report_scalar(
-            "accuracy", "train", iteration=epoch + 1, value=train_acc
-        )
-        Logger.current_logger().report_scalar(
-            "EMA accuracy", "train", iteration=epoch + 1, value=train_acc_ema
-        )
+        if model_ema:
+            train_acc_ema = correct_ema / total
         
         model.eval()
         pbar = tqdm(enumerate(val_loader), total=len(val_loader), desc=f"Val epoch {epoch + 1}/{epochs}")
@@ -220,26 +262,29 @@ def train(
             for i, (images, targets) in pbar:
                 images = images.to(device)
                 targets = targets.to(device)
-
                 outputs = model(images)
-                outputs_ema = model_ema.module(images)
-                
-                scores, predicted = torch.max(outputs.data, 1)
-                scores_ema, predicted_ema = torch.max(outputs_ema.data, 1)
-                
+
                 total += targets.size(0)
+                scores, predicted = torch.max(outputs.data, 1)
                 correct += (predicted == targets).sum().item()
-                correct_ema += (predicted_ema == targets).sum().item()
-                pbar.set_postfix(val_acc=correct / total, val_acc_ema=correct_ema / total)
+                if model_ema:
+                    outputs_ema = model_ema.module(images)
+                    scores_ema, predicted_ema = torch.max(outputs_ema.data, 1)
+                    correct_ema += (predicted_ema == targets).sum().item()
+
+                if model_ema:
+                    pbar.set_postfix(val_acc=correct / total, val_acc_ema=correct_ema / total)
+                else:
+                    pbar.set_postfix(val_acc=correct / total)
+
+            if logger:
+                logger.add_scalar('Accuracy/val', correct / total, epoch + 1)
+                if model_ema:
+                    logger.add_scalar('EMA Accuracy/val', correct_ema / total, epoch + 1)
 
         acc = correct / total
-        acc_ema = correct_ema / total
-        Logger.current_logger().report_scalar(
-            "accuracy", "val", iteration=epoch + 1, value=acc
-        )
-        Logger.current_logger().report_scalar(
-            "EMA accuracy", "val", iteration=epoch + 1, value=acc_ema
-        )
+        if model_ema:
+            acc_ema = correct_ema / total
         
         cnt_not_improve += 1
         if acc > best_acc:
@@ -252,11 +297,11 @@ def train(
                 torch.save(model.state_dict(), model_path)
             cnt_not_improve = 0
         
-        elif acc_ema > best_acc:
+        elif model_ema and acc_ema > best_acc:
             print(f"EMA val accuracy improved: {best_acc:.4f} ===> {acc_ema:.4f}")
             best_acc = acc_ema
             best_train_acc = train_acc_ema
-            best_model = copy.deepcopy(model)
+            best_model = copy.deepcopy(model_ema.module)
             if ckpt_path:
                 model_path = os.path.join(ckpt_path, f"epoch_{epoch + 1}_ema_val_acc_{round(acc, 2)}.pth")
                 torch.save(model.state_dict(), model_path)
@@ -290,32 +335,10 @@ if __name__ == '__main__':
 
     if args.seed:
         set_all_seeds(args.seed)
-    
-    Task.force_requirements_env_freeze(requirements_file="requirements.txt")
-    task = Task.init(project_name=args.clearml_project, task_name=args.clearml_task)
-    task.execute_remotely(queue_name='a100-vision')
-    task.set_base_docker(
-        docker_image='nvidia/cuda:11.6.2-runtime-ubuntu20.04',
-        docker_arguments='--shm-size 16G',
-        docker_setup_bash_script=["apt-get install -y curl ffmpeg"]
-    )
-    
-    train_data_args = dict(
-        dataset_name=args.train_ds_name,
-        dataset_project=args.clearml_project,
-        dataset_version=args.train_ds_ver
-    )
-    train_data_path = Dataset.get(**train_data_args).get_local_copy()
-    
-    val_data_args = dict(
-        dataset_name=args.val_ds_name,
-        dataset_project=args.clearml_project,
-        dataset_version=args.val_ds_ver
-    )
-    val_data_path = Dataset.get(**val_data_args).get_local_copy()
-    
+
     train_loader, n_classes = create_data_loader(
-        image_root=train_data_path,
+        image_root=args.train_ds_path,
+        annotation_file=args.train_ds_annot,
         imgsz=args.input_size,
         normalize_mean=args.normalize_mean,
         normalize_std=args.normalize_std,
@@ -327,9 +350,10 @@ if __name__ == '__main__':
         return_classes=False,
         random_seed=args.seed
     )
-    
+
     val_loader, _ = create_data_loader(
-        image_root=train_data_path,
+        image_root=args.val_ds_path,
+        annotation_file=args.val_ds_annot,
         imgsz=args.input_size,
         normalize_mean=args.normalize_mean,
         normalize_std=args.normalize_std,
@@ -365,11 +389,17 @@ if __name__ == '__main__':
         os.makedirs(ckpt_path, exist_ok=True)
     else:
         ckpt_path = None
+
+    if args.log_path is not None:
+        log_path = os.path.join(args.log_path, date_str)
+        os.makedirs(log_path, exist_ok=True)
+    else:
+        log_path = None
         
     config_to_save = {
         'arch': args.arch,
         'n_classes': n_classes,
-        'imgsz': args.imgsz,
+        'imgsz': args.input_size,
         'mean': args.normalize_mean,
         'std': args.normalize_std
     }
@@ -383,8 +413,9 @@ if __name__ == '__main__':
         criterion=criterion,
         optimizer=optimizer,
         scheduler=scheduler,
-        update_scheduler_by_iter=True,
+        update_scheduler_by_iter=True,  # There are scheduler that is updated by epoch.
         epochs=args.epochs,
         patience=args.patience,
-        ckpt_path=ckpt_path
+        ckpt_path=ckpt_path,
+        log_path=log_path
     )

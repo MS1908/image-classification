@@ -274,16 +274,16 @@ def create_data_loader(
 
     if mode == 'train':
         dataset = CustomSampleImageDataset(
-            image_root, 
-            annotation_file, 
+            image_root,
+            annotation_file,
             transforms_pipeline=pipeline,
             class_sampling_ratio=class_sample_ratio
         )
 
     else:  # Don't oversampling val dataset
         dataset = CustomSampleImageDataset(
-            image_root, 
-            annotation_file, 
+            image_root,
+            annotation_file,
             transforms_pipeline=pipeline,
             class_sampling_ratio=None
         )

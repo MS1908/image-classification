@@ -1,23 +1,21 @@
 #!/bin/bash
-python3 train.py --clearml-project minhnq54/fraud-id-clf \
-                 --clearml-task 'Fraud ID number detection' \
-                 --train-ds-name id-field-train \
-                 --train-ds-ver 1.0.3 \
-                 --val-ds-name id-field-val \
-                 --val-ds-ver 1.0.0 \
-                 --input_size 32 240 \
-                 --normalize_mean 0.627 0.586 0.536 \
-                 --normalize_std 0.237 0.221 0.214 \
+python3 train.py --train-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs-vs-cats/images/train \
+                 --val-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs-vs-cats/images/val \
+                 --input_size 224 \
+                 --normalize_mean 0.485 0.456 0.406 \
+                 --normalize_std 0.229 0.224 0.225 \
                  --aug_strength weak \
-                 --batch_size 128 \
+                 --batch_size 8 \
+                 --ema \
                  --optimizer adamw \
-                 --learning_rate 0.01 \
+                 --learning_rate 0.0001 \
                  --dropout 0.2 \
                  --freeze_bottom \
                  --arch efficientnet_b1 \
-                 --smoothing 0.4 \
-                 --epochs 200 \
+                 --smoothing 0.0 \
+                 --epochs 50 \
                  --seed 42 \
-                 --ckpt-path weights/id-number-exp \
+                 --ckpt-path weights/ \
+                 --log-path logs/ \
                  --device 0 \
                  --n-worker 4
