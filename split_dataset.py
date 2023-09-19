@@ -5,7 +5,7 @@ import pandas as pd
 from glob import glob
 from sklearn.model_selection import train_test_split
 
-from dataset import is_image_folder
+from load_data.dataset import is_image_folder
 
 IMAGE_EXTS = ['jpg', 'png', 'jpeg', 'JPG', 'PNG', 'JPEG']
 

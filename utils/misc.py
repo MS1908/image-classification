@@ -111,3 +111,9 @@ def plot_multiclass_pr_curve(y_true, logits, literal_labels, pr_plot_name=None):
     plt.legend(loc="best")
     plt.title("precision vs. recall curve")
     plt.savefig('pr_curve.png' if pr_plot_name is None else pr_plot_name)
+
+
+def onehot(n_classes, target):
+    vec = torch.zeros(n_classes, dtype=torch.float32)
+    vec[target] = 1.
+    return vec

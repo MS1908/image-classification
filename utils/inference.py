@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-from image_processing_utils import image_preprocess_torch
+from utils.image_processing import image_preprocess_torch
 
 
 def binary_classify_image(

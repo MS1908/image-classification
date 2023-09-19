@@ -11,9 +11,8 @@ from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from dataset import create_data_loader
-from dl_models import timm_models_factory
-from optimizers import torch_optimizer_factory
+from load_data import create_data_loader
+from deep_learning import timm_models_factory, torch_optimizer_factory
 from utils import set_all_seeds
 
 

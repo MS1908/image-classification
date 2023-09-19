@@ -6,10 +6,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
 
-from dataset import ImageDataset
-from dl_models import timm_models_factory
-from infer_utils import binary_classify_image, classify_image
-from utils import compute_stats, plot_binary_pr_curve, plot_multiclass_pr_curve
+from load_data.dataset import ImageDataset
+from deep_learning import timm_models_factory
+from utils import binary_classify_image, compute_stats, plot_binary_pr_curve
 
 
 def parse_args():
