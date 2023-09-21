@@ -7,3 +7,5 @@ timm==0.9.7
 tensorboard==2.14.0
 pandas==2.1.0
 seaborn==0.12.2
+onnx==1.14.1
+onnx_tf==1.10.0
