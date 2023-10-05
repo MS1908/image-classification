@@ -116,7 +116,7 @@ class MobileBottleneck(nn.Module):
 
 
 class MobileNetV3(nn.Module):
-    def __init__(self, n_classes=1000, input_size=224, dropout=0., model_size='small', width_mult=1.0):
+    def __init__(self, n_classes=1000, dropout=0., model_size='small', width_mult=1.0):
         super(MobileNetV3, self).__init__()
         input_channel = 16
         last_channel = 1280
@@ -161,7 +161,6 @@ class MobileNetV3(nn.Module):
             raise ValueError('model_size argument has to be [small, large]')
 
         # building first layer
-        assert input_size % 32 == 0
         last_channel = make_divisible(last_channel * width_mult) if width_mult > 1.0 else last_channel
         self.features = [conv_bn(3, input_channel, 2, activation=HSwish)]
         self.classifier = []
@@ -255,8 +254,8 @@ def mobilenet_v3_large(**kwargs):
 if __name__ == '__main__':
     import torch
 
-    net = mobilenet_v3_small_50(n_classes=200, input_size=64)
+    net = mobilenet_v3_small_50(n_classes=200)
     inp = torch.randn((1, 3, 64, 64))
     oup = net(inp)
     print(oup.size())
-    torch.save(net.state_dict(), 'mbv3_test.pth')
+    # torch.save(net.state_dict(), 'mbv3_test.pth')
