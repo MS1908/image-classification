@@ -92,6 +92,8 @@ def timm_models_factory(
         
         freeze_bottom (bool): Freeze the bottom of model, only finetune the top few layers. (For timm, we freeze the bottom blocks,
         and finetune the top blocks.)
+
+        n_conv_blocks_to_train (int): Number of convolution blocks that will be trained. Defaults to 0
         
         dropout (float): Dropout of model (when training)
         

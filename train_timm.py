@@ -12,7 +12,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from load_data import create_data_loader
-from deep_learning import timm_models_factory, torch_optimizer_factory
+from training_utils import torch_optimizer_factory
+from models import timm_models_factory
 from utils import set_all_seeds
 
 

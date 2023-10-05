@@ -150,16 +150,6 @@ class ImageDataset(data.Dataset):
 
 
 class CustomSampleImageDataset(ImageDataset):
-    """Construct an images dataset with custom sampling rate per class for image classification. Inherits ImageDataset.
-    
-    This type of dataset is used for imbalanced dataset, by sampling classes with low number of representatives more
-    than classes with high number of representatives. 
-    
-    For example, a dataset with two classes 'dog' and 'cat' with 2 images of dog and 30 image of classes.
-    
-    By specifying a class_sampling_ratio = [15, 1], that means that the number of times class 'cat' is sampled
-    is 15 * (times class 'dog' is sampled)
-    """
 
     def __init__(
         self, 
@@ -167,70 +157,42 @@ class CustomSampleImageDataset(ImageDataset):
         annotation_file, 
         transforms_pipeline=None, 
         class_sampling_ratio=None, 
-        categorical=False
+        categorical=False,
+        return_image=True
     ):
         """
+        This dataset is used in the case a dataset is imbalanced, we need to oversample the class with low
+        population. Inherits from ImageDataset.
+        
         Args:
             image_root (str): The directory of images dataset
+            
             annotation_file (str, optional): Path to CSV annotation file. Defaults to None.
+            
             transforms_pipeline (List, optional): A list of Albumentations transform for augmentation. Defaults to None.
+            
+            class_sampling_ratio(List[int], optional): The oversampling rate. For example, [1, 3] means each sample with label
+            0 is sampled once, each sample with label 1 is sampled thrice.
+            
             categorical (bool, optional): Transform label to categorical label flag. If set to True then
             the label is transformed to categorical label. Defaults to False.
-            class_sampling_ratio (list): The sample ratio for each class. Default to None
+            
+            return_image (bool, optional): Return image flag. If set to true, then the dataset with return
+            image when get item, otherwise it return the path to image. Defaults to True.
         """
         super(CustomSampleImageDataset, self).__init__(image_root=image_root, 
                                                        annotation_file=annotation_file, 
                                                        transforms_pipeline=transforms_pipeline, 
                                                        categorical=categorical, 
-                                                       return_image=True)  # Always return image
+                                                       return_image=return_image)
         self.class_sampling_ratio = class_sampling_ratio
         
         if class_sampling_ratio is not None:
             assert self.literal_labels is not None, "Dataset need to be able to parse labels to custom sample classes"
             assert len(class_sampling_ratio) == len(self.literal_labels), "Class sampling ratio list must have equal size to number of classes."
             self.n_classes = len(self.literal_labels)
-            self.not_used_samples = {}
-            self.used_samples = {}
-            self.sample_per_class = [0 for _ in range(len(self.literal_labels))]
+            self.n_sample_per_image = {}
+            oversampling_samples = []
             for path, label in self.samples:
-                self.used_samples[label] = []
-                if label not in self.not_used_samples:
-                    self.not_used_samples[label] = [path]
-                else:
-                    self.not_used_samples[label].append(path)
-                self.sample_per_class[label] += 1
-            for label in range(len(class_sampling_ratio)):
-                self.sample_per_class[label] = int(self.sample_per_class[label] * class_sampling_ratio[label])
-            self.dataset_len = sum(self.sample_per_class)
-
-    def __len__(self):
-        if self.class_sampling_ratio is None:
-            return super().__len__()
-        return self.dataset_len
-
-    def __getitem__(self, index):
-        if self.class_sampling_ratio is None:
-            return super().__getitem__(index)
-        
-        while True:
-            label_to_use = random.randint(0, len(self.literal_labels) - 1)
-            if self.sample_per_class[label_to_use] != 0:
-                break
-        if len(self.not_used_samples[label_to_use]) != 0:
-            path = self.not_used_samples[label_to_use].pop()
-            self.used_samples[label_to_use].append(path)
-        else:
-            path = random.choice(self.used_samples[label_to_use])
-        
-        target = label_to_use
-        sample = cv2.imread(path)
-        sample = cv2.cvtColor(sample, cv2.COLOR_BGR2RGB)
-        if self.transforms is not None:
-            sample = self.transforms(image=sample)['image']
-        if self.categorical and target != -1:
-            target = onehot(self.n_classes, target)
-            
-        return sample, target
-        
-    def get_literal_labels(self):
-        return self.literal_labels
+                oversampling_samples.extend([(path, label)] * int(class_sampling_ratio[label]))
+            self.samples = oversampling_samples[:]
