@@ -1,6 +1,6 @@
 #!/bin/bash
-python3 train.py --train-ds-path train/data/path \
-                 --val-ds-path val/data/path \
+python3 train.py --train-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs-vs-cats/images/train \
+                 --val-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs-vs-cats/images/val \
                  --input_size 224 \
                  --normalize_mean 0.485 0.456 0.406 \
                  --normalize_std 0.229 0.224 0.225 \
