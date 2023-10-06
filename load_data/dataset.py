@@ -4,11 +4,18 @@ import random
 import albumentations as A
 import pandas as pd
 from glob import glob
+from sklearn.model_selection import train_test_split
 from torch.utils import data
 
 from utils import onehot
 
 IMAGE_EXTS = ['jpg', 'png', 'jpeg', 'JPG', 'PNG', 'JPEG']
+
+__all__ = [
+    'ImageDataset',
+    'TrainValImageDataset',
+    'CustomSampleImageDataset'
+]
 
 
 def is_image_folder(image_root):
@@ -149,7 +156,37 @@ class ImageDataset(data.Dataset):
         return self.literal_labels
 
 
-class CustomSampleImageDataset(ImageDataset):
+class TrainValImageDataset(ImageDataset):
+
+    def __init__(
+        self,
+        image_root,
+        annotation_file=None,
+        transforms_pipeline=None,
+        categorical=False,
+        return_image=True,
+        train_val_split=None,
+        phase='train',
+        seed=None
+    ):
+        super(TrainValImageDataset, self).__init__(image_root=image_root,
+                                                   annotation_file=annotation_file,
+                                                   transforms_pipeline=transforms_pipeline,
+                                                   categorical=categorical,
+                                                   return_image=return_image)
+
+        if train_val_split is not None:  # Auto split dataset
+            train_samples, val_samples = train_test_split(self.samples, test_size=train_val_split,
+                                                          random_state=seed)
+            if phase == 'train':
+                self.samples = train_samples[:]
+            elif phase == 'val':
+                self.samples = val_samples[:]
+            else:
+                raise ValueError(f"Dataset phase has to be either 'train' or 'val'")
+
+
+class CustomSampleImageDataset(TrainValImageDataset):
 
     def __init__(
         self, 
@@ -158,7 +195,10 @@ class CustomSampleImageDataset(ImageDataset):
         transforms_pipeline=None, 
         class_sampling_ratio=None, 
         categorical=False,
-        return_image=True
+        return_image=True,
+        train_val_split=None,
+        phase='train',
+        seed=None
     ):
         """
         This dataset is used in the case a dataset is imbalanced, we need to oversample the class with low
@@ -178,18 +218,24 @@ class CustomSampleImageDataset(ImageDataset):
             the label is transformed to categorical label. Defaults to False.
             
             return_image (bool, optional): Return image flag. If set to true, then the dataset with return
-            image when get item, otherwise it return the path to image. Defaults to True.
+            image when get item, otherwise it returns the path to image. Defaults to True.
         """
         super(CustomSampleImageDataset, self).__init__(image_root=image_root, 
                                                        annotation_file=annotation_file, 
                                                        transforms_pipeline=transforms_pipeline, 
                                                        categorical=categorical, 
-                                                       return_image=return_image)
+                                                       return_image=return_image,
+                                                       train_val_split=train_val_split,
+                                                       phase=phase,
+                                                       seed=seed)
+
         self.class_sampling_ratio = class_sampling_ratio
         
         if class_sampling_ratio is not None:
             assert self.literal_labels is not None, "Dataset need to be able to parse labels to custom sample classes"
-            assert len(class_sampling_ratio) == len(self.literal_labels), "Class sampling ratio list must have equal size to number of classes."
+            assert len(class_sampling_ratio) == len(self.literal_labels), \
+                "Class sampling ratio list must have equal size to number of classes."
+
             self.n_classes = len(self.literal_labels)
             self.n_sample_per_image = {}
             oversampling_samples = []
