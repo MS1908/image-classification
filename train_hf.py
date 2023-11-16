@@ -1,4 +1,6 @@
 import argparse
+import os
+
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -126,6 +128,12 @@ def parse_args():
         help='Number of workers to use when training',
         default=0
     )
+    parser.add_argument(
+        '--ckpt-path',
+        type=str,
+        help='Path to save training checkpoints',
+        default='./weights/'
+    )
     args = parser.parse_args()
 
     return args
@@ -241,3 +249,7 @@ if __name__ == '__main__':
         log_every_n_steps=1
     )
     trainer.fit(model_module, train_loader, val_loader)
+
+    model_arch = args.model_name_or_path.split('/')[-1]
+    os.makedirs(os.path.join(args.ckpt_path, model_arch), exist_ok=True)
+    model_module.model.save_pretrained(os.path.join(args.ckpt_path, model_arch, 'best'), from_pt=True)

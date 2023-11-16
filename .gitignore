@@ -197,6 +197,7 @@ runs/
 out/
 weights/
 data/
+lightning_logs/
 
 *.weights
 *.pth

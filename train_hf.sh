@@ -8,8 +8,9 @@ python3 train_hf.py --train-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs-v
                     --batch_size 8 \
                     --optimizer adamw \
                     --learning_rate 0.0001 \
-                    --model_name_or_path efficientnet_b1 \
+                    --model_name_or_path WinKawaks/vit-tiny-patch16-224 \
                     --use_pretrain \
-                    --epochs 50 \
+                    --epochs 1 \
                     --seed 42 \
-                    --n-worker 4
+                    --n-worker 4 \
+                    --ckpt-path weights/

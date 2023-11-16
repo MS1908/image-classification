@@ -9,3 +9,5 @@ pandas==2.1.0
 seaborn==0.12.2
 onnx==1.14.1
 onnx_tf==1.10.0
+transformers==4.35.2
+pytorch_lightning==2.1.2

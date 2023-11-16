@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from load_data.dataset import ImageDataset
-from deep_learning import timm_models_factory
+from models import timm_models_factory, hf_models_factory
 from utils import binary_classify_image, compute_stats, plot_binary_pr_curve
 
 
