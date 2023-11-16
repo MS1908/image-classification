@@ -95,29 +95,19 @@ def parse_args():
         default=5e-5,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
+
     parser.add_argument(
-        "--dropout",
-        type=float,
-        default=0.0,
-        help="Dropout of model"
+        "--model_name_or_path",
+        type=str,
+        default=None,
+        help="HuggingFace model path (or name)",
     )
     parser.add_argument(
-        "--freeze_bottom",
+        "--use_pretrain",
         action="store_true",
         help="Freeze bottom or not (finetune only top layer)"
     )
-    parser.add_argument(
-        "--arch",
-        type=str,
-        default=None,
-        help="Timm model architecture",
-    )
-    parser.add_argument(
-        "--smoothing",
-        type=float,
-        default=0.0,
-        help="CE Loss smoothing",
-    )
+
     parser.add_argument(
         "--epochs",
         type=int,
@@ -125,35 +115,10 @@ def parse_args():
         help="Number of training epochs",
     )
     parser.add_argument(
-        "--patience",
-        type=int,
-        default=None,
-        help="Number of not improving epoch to early stop",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         default=None,
         help="Random seed",
-    )
-
-    parser.add_argument(
-        '--ckpt-path',
-        type=str,
-        help='Path to save training checkpoints',
-        default='./weights/'
-    )
-    parser.add_argument(
-        '--log-path',
-        type=str,
-        help='Path to save training logs',
-        default='./logs/'
-    )
-    parser.add_argument(
-        '--device',
-        type=int,
-        help='ID of device to train on, use -1 for CPU',
-        default=-1
     )
     parser.add_argument(
         '--n-worker',
@@ -221,7 +186,7 @@ if __name__ == '__main__':
     if args.seed:
         set_all_seeds(args.seed)
 
-    train_loader, n_classes = create_data_loader(
+    train_loader, n_classes, labels = create_data_loader(
         image_root=args.train_ds_path,
         annotation_file=args.train_ds_annot,
         imgsz=args.input_size,
@@ -232,10 +197,12 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         num_worker=args.n_worker,
         mode='train',
-        return_classes=False,
+        return_classes=True,
         collate_fn=collate_fn,
         random_seed=args.seed
     )
+    id2label = {k: v for k, v in enumerate(labels)}
+    label2id = {v: k for k, v in enumerate(labels)}
 
     val_loader, _ = create_data_loader(
         image_root=args.val_ds_path,
@@ -253,7 +220,15 @@ if __name__ == '__main__':
         random_seed=args.seed
     )
 
-    model_module = ModelModule()
+    model_module = ModelModule(
+        model_name_or_path=args.model_name_or_path,
+        labels=labels,
+        id2label=id2label,
+        label2id=label2id,
+        use_pretrain=args.use_pretrain,
+        optim_name=args.optimizer,
+        lr=args.learning_rate
+    )
     ckpt = ModelCheckpoint(
         filename="{epoch}-{val_acc:.4f}", save_last=True, save_top_k=1, monitor="val_acc", mode="max"
     )
@@ -261,7 +236,7 @@ if __name__ == '__main__':
         accelerator="auto",
         precision=16,
         devices=1,
-        max_epochs=100,
+        max_epochs=args.epochs,
         callbacks=[ckpt],
         log_every_n_steps=1
     )

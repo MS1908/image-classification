@@ -70,7 +70,8 @@ def freeze_params(arch, model, n_conv_blocks_to_train=0):
 def timm_models_factory(
     arch, 
     n_classes,
-    device=None, 
+    device=None,
+    use_pretrain=True,
     phase='train',
     freeze_bottom=False,
     n_conv_blocks_to_train=0,
@@ -86,6 +87,8 @@ def timm_models_factory(
         this argument will be given preference.
         
         device: Device to load model on. Defaults to None.
+
+        use_pretrain (bool): Use pretrain weight from timm library or not.
         
         phase (str): The mode of model. Either in 'train' mode (for training) or 'val' mode (for evaluation). 
         Defaults to 'train'.
@@ -107,7 +110,7 @@ def timm_models_factory(
     """
     try:
         model = timm.create_model(arch,
-                                  pretrained=phase == 'train',
+                                  pretrained=use_pretrain,
                                   num_classes=n_classes,
                                   drop_rate=dropout)
     except RuntimeError:

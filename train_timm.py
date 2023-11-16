@@ -101,6 +101,13 @@ def parse_args():
         default=5e-5,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
+
+    parser.add_argument(
+        "--arch",
+        type=str,
+        default=None,
+        help="Timm model architecture",
+    )
     parser.add_argument(
         "--dropout",
         type=float,
@@ -108,16 +115,17 @@ def parse_args():
         help="Dropout of model"
     )
     parser.add_argument(
-        "--freeze_bottom",
+        "--use_pretrain",
         action="store_true",
-        help="Freeze bottom or not (finetune only top layer)"
+        help="Use pretrained weight (so you're just fine tuning) or not"
     )
     parser.add_argument(
-        "--arch",
-        type=str,
-        default=None,
-        help="Timm model architecture",
+        "--n_block_to_train",
+        type=int,
+        default=0,
+        help="Number of conv block at the top to train"
     )
+
     parser.add_argument(
         "--smoothing",
         type=float,
@@ -374,7 +382,9 @@ if __name__ == '__main__':
         n_classes=n_classes,
         device=device,
         phase='train',
-        freeze_bottom=args.freeze_bottom,
+        use_pretrain=args.use_pretrain,
+        freeze_bottom=args.use_pretrain,  # Use pretrain -> Fine tune only -> Need to freeze bottom
+        n_conv_blocks_to_train=args.n_block_to_train,
         dropout=args.dropout,
         ckpt_path=None
     )

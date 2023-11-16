@@ -9,9 +9,10 @@ python3 train_timm.py --train-ds-path /media/minh/01D8D2B8C5178CE0/datasets/dogs
                       --ema \
                       --optimizer adamw \
                       --learning_rate 0.0001 \
-                      --dropout 0.2 \
-                      --freeze_bottom \
                       --arch efficientnet_b1 \
+                      --dropout 0.2 \
+                      --use_pretrain \
+                      --n_block_to_train 1 \
                       --smoothing 0.0 \
                       --epochs 50 \
                       --seed 42 \
