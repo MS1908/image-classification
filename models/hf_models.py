@@ -8,6 +8,7 @@ def hf_models_factory(
     label2id,
     trust_remote_code=False,
     use_hf_pretrain=False,
+    build_img_processor=False,
     ignore_mismatched_sizes=True
 ):
     if use_hf_pretrain:
@@ -39,11 +40,19 @@ def hf_models_factory(
 
         model = AutoModelForImageClassification.from_config(config)
 
-    return config, model
+    if build_img_processor:
+        processor = AutoImageProcessor.from_pretrained(
+            model_name_or_path,
+            trust_remote_code=trust_remote_code
+        )
+    else:
+        processor = None
+
+    return config, processor, model
 
 
 if __name__ == '__main__':
-    config, model = build_hf_model(
+    config, processor, model = hf_models_factory(
         model_name_or_path='microsoft/swin-tiny-patch4-window7-224',
         labels=['a', 'b'],
         id2label={0: 'a', 1: 'b'},

@@ -25,6 +25,7 @@ def create_data_loader(
     num_worker=8,
     mode='train',
     return_classes=False,
+    collate_fn=None,
     random_seed=None
 ):
     pipeline = image_augmentation_pipeline(
@@ -60,14 +61,16 @@ def create_data_loader(
             shuffle=mode == 'train',
             num_workers=num_worker,
             worker_init_fn=seed_worker,
-            generator=g
+            generator=g,
+            collate_fn=collate_fn
         )
     else:
         data_loader = data.DataLoader(
             dataset=dataset,
             batch_size=batch_size,
             shuffle=mode == 'train',
-            num_workers=num_worker
+            num_workers=num_worker,
+            collate_fn=collate_fn
         )
     if return_classes:
         return data_loader, dataset.n_classes, dataset.get_literal_labels()
