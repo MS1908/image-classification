@@ -117,7 +117,12 @@ def parse_args():
     parser.add_argument(
         "--use_pretrain",
         action="store_true",
-        help="Use pretrained weight (so you're just fine tuning) or not"
+        help="Use pretrained weight from timm library or not"
+    )
+    parser.add_argument(
+        "--freeze_bottom",
+        action="store_true",
+        help="Freeze bottom layers of model (so only train the top layers)"
     )
     parser.add_argument(
         "--n_block_to_train",
@@ -383,7 +388,7 @@ if __name__ == '__main__':
         device=device,
         phase='train',
         use_pretrain=args.use_pretrain,
-        freeze_bottom=args.use_pretrain,  # Use pretrain -> Fine tune only -> Need to freeze bottom
+        freeze_bottom=args.freeze_bottom,
         n_conv_blocks_to_train=args.n_block_to_train,
         dropout=args.dropout,
         ckpt_path=None
