@@ -4,9 +4,11 @@ import onnx
 import timm
 import torch
 from onnx_tf.backend import prepare
+from transformers import AutoModelForImageClassification, AutoConfig
+from optimum.onnxruntime import ORTModelForImageClassification
 
 
-def export_to_onnx(
+def export_timm_to_onnx(
     arch,
     imgsz,
     n_classes,
@@ -32,6 +34,41 @@ def export_to_onnx(
     if weight_path:
         state_dict = torch.load(weight_path, map_location='cpu')
         model.load_state_dict(state_dict)
+
+    if device:
+        model.to(device)
+        model.eval()
+
+    dummy_input = torch.randn(1, n_channels, h, w)
+    dummy_input = dummy_input.to(device)
+
+    dummy_output = model(dummy_input)  # Create graph?
+    input_names = ["input"]
+    output_names = ["output"]
+
+    torch.onnx.export(
+        model, dummy_input, onnx_path,
+        input_names=input_names,
+        output_names=output_names,
+        dynamic_axes={
+            "input": {0: "batch_size"},
+            "output": {0: "batch_size"}
+        },
+        opset_version=opset_version
+    )
+
+
+def export_hf_to_onnx(ckpt_path, onnx_path, device=None, opset_version=11):
+    config = AutoConfig.from_pretrained(ckpt_path, trust_remote_code=False)
+    model = AutoModelForImageClassification.from_pretrained(
+        ckpt_path,
+        config=config,
+        ignore_mismatched_sizes=True,
+        trust_remote_code=False
+    )
+
+    h = w = config.image_size
+    n_channels = config.num_channels
 
     if device:
         model.to(device)
@@ -90,6 +127,13 @@ def parse_args():
         default=None
     )
     parser.add_argument(
+        "--dl-lib",
+        type=str,
+        help="Deep learning library used to build the model",
+        default='timm',
+        choices=['timm', 'hf']
+    )
+    parser.add_argument(
         "--backend",
         type=str,
         help="Backend to export model",
@@ -115,14 +159,20 @@ if __name__ == '__main__':
             os.makedirs(args.save_path, exist_ok=True)
             args.save_path = os.path.join(args.save_path, f"{args.arch}.onnx")
 
-        export_to_onnx(
-            arch=args.arch,
-            imgsz=args.imgsz,
-            n_classes=args.n_classes,
-            n_channels=3,
-            weight_path=args.weight_path,
-            onnx_path=args.save_path
-        )
+        if args.dl_lib == 'timm':
+            export_timm_to_onnx(
+                arch=args.arch,
+                imgsz=args.imgsz,
+                n_classes=args.n_classes,
+                n_channels=3,
+                weight_path=args.weight_path,
+                onnx_path=args.save_path
+            )
+        else:
+            export_hf_to_onnx(
+                ckpt_path=args.weight_path,
+                onnx_path=args.save_path
+            )
 
     elif args.backend.lower() == 'tf':
         if args.save_path is None:
@@ -133,7 +183,7 @@ if __name__ == '__main__':
             onnx_path = os.path.join(args.save_path, f"{args.arch}.onnx")
             args.save_path = os.path.join(args.save_path, f"{args.arch}_saved_model")
 
-        export_to_onnx(
+        export_timm_to_onnx(
             arch=args.arch,
             imgsz=args.imgsz,
             n_classes=args.n_classes,

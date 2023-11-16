@@ -8,6 +8,9 @@ tensorboard==2.14.0
 pandas==2.1.0
 seaborn==0.12.2
 onnx==1.14.1
+onnxruntime-gpu==1.14.1
 onnx_tf==1.10.0
+optimum==1.14.1
 transformers==4.35.2
 pytorch_lightning==2.1.2
+tensorflow-probability==0.21.0
