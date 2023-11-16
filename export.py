@@ -5,7 +5,6 @@ import timm
 import torch
 from onnx_tf.backend import prepare
 from transformers import AutoModelForImageClassification, AutoConfig
-from optimum.onnxruntime import ORTModelForImageClassification
 
 
 def export_timm_to_onnx(
