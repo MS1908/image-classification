@@ -4,13 +4,14 @@ from transformers import AutoConfig, AutoImageProcessor, AutoModelForImageClassi
 def hf_models_factory(
     model_name_or_path,
     labels,
-    id2label,
-    label2id,
     trust_remote_code=False,
     use_hf_pretrain=False,
     build_img_processor=False,
     ignore_mismatched_sizes=True
 ):
+    id2label = {k: v for k, v in enumerate(labels)}
+    label2id = {v: k for k, v in enumerate(labels)}
+    
     if use_hf_pretrain:
         config = AutoConfig.from_pretrained(
             model_name_or_path,
@@ -55,7 +56,5 @@ if __name__ == '__main__':
     config, processor, model = hf_models_factory(
         model_name_or_path='microsoft/swin-tiny-patch4-window7-224',
         labels=['a', 'b'],
-        id2label={0: 'a', 1: 'b'},
-        label2id={'a': 0, 'b': 1},
         use_hf_pretrain=True
     )

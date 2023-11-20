@@ -141,13 +141,11 @@ def parse_args():
 
 class ModelModule(pl.LightningModule):
 
-    def __init__(self, model_name_or_path, labels, id2label, label2id, use_pretrain=True, optim_name='adamw', lr=1e-3):
+    def __init__(self, model_name_or_path, labels, use_pretrain=True, optim_name='adamw', lr=1e-3):
         super().__init__()
         config, processor, model = hf_models_factory(
             model_name_or_path=model_name_or_path,
             labels=labels,
-            id2label=id2label,
-            label2id=label2id,
             trust_remote_code=False,
             use_hf_pretrain=use_pretrain,
             build_img_processor=False  # Image already processed during augmentation process
@@ -209,8 +207,6 @@ if __name__ == '__main__':
         collate_fn=collate_fn,
         random_seed=args.seed
     )
-    id2label = {k: v for k, v in enumerate(labels)}
-    label2id = {v: k for k, v in enumerate(labels)}
 
     val_loader, _ = create_data_loader(
         image_root=args.val_ds_path,
@@ -231,8 +227,6 @@ if __name__ == '__main__':
     model_module = ModelModule(
         model_name_or_path=args.model_name_or_path,
         labels=labels,
-        id2label=id2label,
-        label2id=label2id,
         use_pretrain=args.use_pretrain,
         optim_name=args.optimizer,
         lr=args.learning_rate
